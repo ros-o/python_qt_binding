@@ -72,6 +72,11 @@ def get_sip_dir_flags(config):
         if os.path.exists(default_sip_dir):
             return default_sip_dir, sip_flags
 
+        # workaround for new path sip dir in pyqt5 >= 5.15.0+dfsg-1+exp1
+        default_sip_dir = '/usr/lib/python3/dist-packages/PyQt5/bindings'
+        if os.path.exists(default_sip_dir):
+            return default_sip_dir, sip_flags
+
         # Homebrew installs sip files here by default
         default_sip_dir = os.path.join(sipconfig._pkg_config['default_sip_dir'], 'Qt5')
         if os.path.exists(default_sip_dir):
