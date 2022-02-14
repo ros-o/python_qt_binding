@@ -24,3 +24,4 @@ libraries = [@SIP_LIBARIES@]
 library-dirs = [@SIP_LIBRARY_DIRS@]
 qmake-QT = ["widgets"]
 define-macros = [@SIP_EXTRA_DEFINES@]
+exceptions = true
