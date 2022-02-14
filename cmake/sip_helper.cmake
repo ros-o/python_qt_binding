@@ -38,6 +38,11 @@ if(sip_helper_FOUND)
   message(STATUS "SIP binding generator version: ${SIP_VERSION}")
 endif()
 
+execute_process(
+  COMMAND ${PYTHON_EXECUTABLE} -c "import distutils.sysconfig as c; print(c.get_config_var('EXT_SUFFIX'), end='')"
+  OUTPUT_VARIABLE PYTHON_EXTENSION_MODULE_SUFFIX
+  ERROR_QUIET)
+
 #
 # Run the SIP generator and compile the generated code into a library.
 #
@@ -153,7 +158,7 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
             ${sip_BINARY_DIR}/sip/pyproject.toml
         )
         add_custom_command(
-            OUTPUT ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+            OUTPUT ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${PYTHON_EXTENSION_MODULE_SUFFIX}
             COMMAND ${PYTHON_EXECUTABLE} -m pip install . --target ${sip_LIBRARY_DIR} --no-deps
             DEPENDS ${sip_SIP_CONFIGURE} ${SIP_FILE} ${sip_DEPENDS}
             WORKING_DIRECTORY ${sip_BINARY_DIR}/sip
@@ -180,7 +185,7 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
         endif()
 
         add_custom_command(
-            OUTPUT ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+            OUTPUT ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${PYTHON_EXTENSION_MODULE_SUFFIX}
             COMMAND ${MAKE_EXECUTABLE}
             DEPENDS ${SIP_BUILD_DIR}/Makefile
             WORKING_DIRECTORY ${SIP_BUILD_DIR}
@@ -189,7 +194,7 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
     endif()
 
     add_custom_target(lib${PROJECT_NAME} ALL
-        DEPENDS ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        DEPENDS ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${PYTHON_EXTENSION_MODULE_SUFFIX}
         COMMENT "Meta target for ${PROJECT_NAME} Python bindings..."
     )
     add_dependencies(lib${PROJECT_NAME} ${sip_DEPENDENCIES})
