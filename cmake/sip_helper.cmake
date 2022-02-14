@@ -127,15 +127,21 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
         endforeach()
         string(REGEX REPLACE "^," "" SIP_INCLUDE_DIRS ${SIP_INCLUDE_DIRS})
 
-        # SIP expects the libraries WITHOUT the file extension.
-        set(SIP_LIBARIES "")
+        # pyproject.toml expects libraries listed as such to be added to the linker command
+        # via `-l`, but this does not work for libraries with absolute paths
+        # instead we have to pass them to the linker via a different parameter
+        set(_SIP_REL_LIBRARIES "")
+        set(_SIP_ABS_LIBRARIES "")
         foreach(_x ${LIBRARIES} ${PYTHON_LIBRARIES})
-          get_filename_component(_x_NAME "${_x}" NAME_WLE)
-          get_filename_component(_x_DIR "${_x}" DIRECTORY)
-          get_filename_component(_x "${_x_DIR}/${_x_NAME}" ABSOLUTE)
-          set(SIP_LIBARIES "${SIP_LIBARIES},\"${_x}\"")
+          cmake_path(IS_ABSOLUTE _x is_abs)
+          if(is_abs)
+            list(APPEND _SIP_ABS_LIBRARIES "\"${_x}\"")
+          else()
+            list(APPEND _SIP_REL_LIBRARIES "\"${_x}\"")
+          endif()
         endforeach()
-        string(REGEX REPLACE "^," "" SIP_LIBARIES ${SIP_LIBARIES})
+        list(JOIN _SIP_REL_LIBRARIES "," SIP_LIBRARIES)
+        list(JOIN _SIP_ABS_LIBRARIES "," SIP_ABS_LIBRARIES)
 
         set(SIP_LIBRARY_DIRS "")
         foreach(_x ${LIBRARY_DIRS})

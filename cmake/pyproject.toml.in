@@ -20,8 +20,10 @@ name = "lib@PROJECT_NAME@"
 [tool.sip.bindings.libqt_gui_cpp_sip]
 sip-file = "@SIP_FILE@"
 include-dirs = [@SIP_INCLUDE_DIRS@]
-libraries = [@SIP_LIBARIES@]
+libraries = [@SIP_LIBRARIES@]
 library-dirs = [@SIP_LIBRARY_DIRS@]
+# this should be extra-objects, but these break inside pybuild with sip modules
+extra-link-args = [@SIP_ABS_LIBRARIES@]
 qmake-QT = ["widgets"]
 define-macros = [@SIP_EXTRA_DEFINES@]
 exceptions = true
