@@ -165,7 +165,7 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
         )
         add_custom_command(
             OUTPUT ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${PYTHON_EXTENSION_MODULE_SUFFIX}
-            COMMAND ${PYTHON_EXECUTABLE} -m pip install . --target ${sip_LIBRARY_DIR} --no-deps
+            COMMAND ${PYTHON_EXECUTABLE} -m pip install . --target ${sip_LIBRARY_DIR} --no-deps --no-build-isolation
             DEPENDS ${sip_SIP_CONFIGURE} ${SIP_FILE} ${sip_DEPENDS}
             WORKING_DIRECTORY ${sip_BINARY_DIR}/sip
             COMMENT "Running SIP-build generator for ${PROJECT_NAME} Python bindings..."
