@@ -39,7 +39,7 @@ if(sip_helper_FOUND)
 endif()
 
 execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} -c "import distutils.sysconfig as c; print(c.get_config_var('EXT_SUFFIX'), end='')"
+  COMMAND ${PYTHON_EXECUTABLE} -c "import sysconfig as c; print(c.get_config_var('EXT_SUFFIX'), end='')"
   OUTPUT_VARIABLE PYTHON_EXTENSION_MODULE_SUFFIX
   ERROR_QUIET)
 
