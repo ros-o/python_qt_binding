@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import sys
+import sysconfig
 
 import sipconfig
 import PyQt5
@@ -44,6 +45,7 @@ class Configuration(sipconfig.Configuration):
         macros['INCDIR_QT'] = qtconfig['QT_INSTALL_HEADERS']
         macros['LIBDIR_QT'] = qtconfig['QT_INSTALL_LIBS']
         macros['MOC'] = 'moc-qt5' if which('moc-qt5') else 'moc'
+        macros['EXTENSION_PLUGIN'] = sysconfig.get_config_var('EXT_SUFFIX')[1:] # skip the initial '.' here
         self.set_build_macros(macros)
 
 
