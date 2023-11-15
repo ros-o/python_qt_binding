@@ -1,5 +1,5 @@
 from copy import copy
-from distutils.spawn import find_executable
+from shutil import which
 import os
 import re
 import subprocess
@@ -17,7 +17,7 @@ class Configuration(sipconfig.Configuration):
     def __init__(self):
         env = copy(os.environ)
         env['QT_SELECT'] = '5'
-        qmake_exe = 'qmake-qt5' if find_executable('qmake-qt5') else 'qmake'
+        qmake_exe = 'qmake-qt5' if which('qmake-qt5') else 'qmake'
         qtconfig = subprocess.check_output(
             [qmake_exe, '-query'], env=env, universal_newlines=True)
         qtconfig = dict(line.split(':', 1) for line in qtconfig.splitlines())
@@ -43,7 +43,7 @@ class Configuration(sipconfig.Configuration):
         macros = sipconfig._default_macros.copy()
         macros['INCDIR_QT'] = qtconfig['QT_INSTALL_HEADERS']
         macros['LIBDIR_QT'] = qtconfig['QT_INSTALL_LIBS']
-        macros['MOC'] = 'moc-qt5' if find_executable('moc-qt5') else 'moc'
+        macros['MOC'] = 'moc-qt5' if which('moc-qt5') else 'moc'
         self.set_build_macros(macros)
 
 
