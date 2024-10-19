@@ -18,7 +18,7 @@ execute_process(
 if(PYTHON_SIP_EXECUTABLE)
   string(STRIP ${PYTHON_SIP_EXECUTABLE} SIP_EXECUTABLE)
 else()
-  find_program(SIP_EXECUTABLE sip)
+  find_program(SIP_EXECUTABLE NAMES sip sip-build)
 endif()
 
 if(SIP_EXECUTABLE)
@@ -28,6 +28,20 @@ else()
   message(WARNING "SIP binding generator NOT available.")
   set(sip_helper_NOTFOUND TRUE)
 endif()
+
+if(sip_helper_FOUND)
+  execute_process(
+    COMMAND ${SIP_EXECUTABLE} -V
+    OUTPUT_VARIABLE SIP_VERSION
+    ERROR_QUIET)
+  string(STRIP ${SIP_VERSION} SIP_VERSION)
+  message(STATUS "SIP binding generator version: ${SIP_VERSION}")
+endif()
+
+execute_process(
+  COMMAND ${PYTHON_EXECUTABLE} -c "import sysconfig as c; print(c.get_config_var('EXT_SUFFIX'), end='')"
+  OUTPUT_VARIABLE PYTHON_EXTENSION_MODULE_SUFFIX
+  ERROR_QUIET)
 
 #
 # Run the SIP generator and compile the generated code into a library.
@@ -96,35 +110,97 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
     # SIP configure doesn't handle CMake targets
     catkin_replace_imported_library_targets(LIBRARIES ${LIBRARIES})
 
-    add_custom_command(
-        OUTPUT ${SIP_BUILD_DIR}/Makefile
-        COMMAND ${PYTHON_EXECUTABLE} ${sip_SIP_CONFIGURE} ${SIP_BUILD_DIR} ${SIP_FILE} ${sip_LIBRARY_DIR} \"${INCLUDE_DIRS}\" \"${LIBRARIES}\" \"${LIBRARY_DIRS}\" \"${LDFLAGS_OTHER}\" \"${EXTRA_DEFINES}\"
-        COMMAND sed -i 's/ -I/ -isystem/g' ${SIP_BUILD_DIR}/Makefile
-        DEPENDS ${sip_SIP_CONFIGURE} ${SIP_FILE} ${sip_DEPENDS}
-        WORKING_DIRECTORY ${sip_SOURCE_DIR}
-        COMMENT "Running SIP generator for ${PROJECT_NAME} Python bindings..."
-    )
+    if(${SIP_VERSION} VERSION_GREATER_EQUAL "5.0.0")
+        # Since v5, SIP implements the backend per PEP 517, PEP 518
+        # Here we synthesize `pyproject.toml` and run `pip install`
 
-    if(NOT EXISTS "${sip_LIBRARY_DIR}")
+        find_program(QMAKE_EXECUTABLE NAMES qmake REQUIRED)
+
+        file(REMOVE_RECURSE ${SIP_BUILD_DIR})
         file(MAKE_DIRECTORY ${sip_LIBRARY_DIR})
-    endif()
 
-    if(WIN32)
-      set(MAKE_EXECUTABLE NMake.exe)
+        set(SIP_FILES_DIR ${sip_SOURCE_DIR})
+
+        set(SIP_INCLUDE_DIRS "")
+        foreach(_x ${INCLUDE_DIRS})
+          set(SIP_INCLUDE_DIRS "${SIP_INCLUDE_DIRS},\"${_x}\"")
+        endforeach()
+        string(REGEX REPLACE "^," "" SIP_INCLUDE_DIRS ${SIP_INCLUDE_DIRS})
+
+        # pyproject.toml expects libraries listed as such to be added to the linker command
+        # via `-l`, but this does not work for libraries with absolute paths
+        # instead we have to pass them to the linker via a different parameter
+        set(_SIP_REL_LIBRARIES "")
+        set(_SIP_ABS_LIBRARIES "")
+        foreach(_x ${LIBRARIES} ${PYTHON_LIBRARIES})
+          cmake_path(IS_ABSOLUTE _x is_abs)
+          if(is_abs)
+            list(APPEND _SIP_ABS_LIBRARIES "\"${_x}\"")
+          else()
+            list(APPEND _SIP_REL_LIBRARIES "\"${_x}\"")
+          endif()
+        endforeach()
+        list(JOIN _SIP_REL_LIBRARIES "," SIP_LIBRARIES)
+        list(JOIN _SIP_ABS_LIBRARIES "," SIP_ABS_LIBRARIES)
+
+        set(SIP_LIBRARY_DIRS "")
+        foreach(_x ${LIBRARY_DIRS})
+          set(SIP_LIBRARY_DIRS "${SIP_LIBRARY_DIRS},\"${_x}\"")
+        endforeach()
+        string(REGEX REPLACE "^," "" SIP_LIBRARY_DIRS ${SIP_LIBRARY_DIRS})
+
+        set(SIP_EXTRA_DEFINES "")
+        foreach(_x ${EXTRA_DEFINES})
+          set(SIP_EXTRA_DEFINES "${SIP_EXTRA_DEFINES},\"${_x}\"")
+        endforeach()
+        string(REGEX REPLACE "^," "" SIP_EXTRA_DEFINES ${SIP_EXTRA_DEFINES})
+
+        # TODO:
+        #   I don't know what to do about LDFLAGS_OTHER
+        #   what's the equivalent construct in sip5?
+
+        configure_file(
+            ${__PYTHON_QT_BINDING_SIP_HELPER_DIR}/pyproject.toml.in
+            ${sip_BINARY_DIR}/sip/pyproject.toml
+        )
+        add_custom_command(
+            OUTPUT ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${PYTHON_EXTENSION_MODULE_SUFFIX}
+            COMMAND ${PYTHON_EXECUTABLE} -m pip install . --target ${sip_LIBRARY_DIR} --no-deps --no-build-isolation
+            DEPENDS ${sip_SIP_CONFIGURE} ${SIP_FILE} ${sip_DEPENDS}
+            WORKING_DIRECTORY ${sip_BINARY_DIR}/sip
+            COMMENT "Running SIP-build generator for ${PROJECT_NAME} Python bindings..."
+        )
     else()
-      set(MAKE_EXECUTABLE "\$(MAKE)")
-    endif()
+        add_custom_command(
+            OUTPUT ${SIP_BUILD_DIR}/Makefile
+            COMMAND ${PYTHON_EXECUTABLE} ${sip_SIP_CONFIGURE} ${SIP_BUILD_DIR} ${SIP_FILE} ${sip_LIBRARY_DIR} \"${INCLUDE_DIRS}\" \"${LIBRARIES}\" \"${LIBRARY_DIRS}\" \"${LDFLAGS_OTHER}\" \"${EXTRA_DEFINES}\"
+            COMMAND sed -i 's/ -I/ -isystem/g' ${SIP_BUILD_DIR}/Makefile
+            DEPENDS ${sip_SIP_CONFIGURE} ${SIP_FILE} ${sip_DEPENDS}
+            WORKING_DIRECTORY ${sip_SOURCE_DIR}
+            COMMENT "Running SIP generator for ${PROJECT_NAME} Python bindings..."
+        )
 
-    add_custom_command(
-        OUTPUT ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
-        COMMAND ${MAKE_EXECUTABLE}
-        DEPENDS ${SIP_BUILD_DIR}/Makefile
-        WORKING_DIRECTORY ${SIP_BUILD_DIR}
-        COMMENT "Compiling generated code for ${PROJECT_NAME} Python bindings..."
-    )
+        if(NOT EXISTS "${sip_LIBRARY_DIR}")
+            file(MAKE_DIRECTORY ${sip_LIBRARY_DIR})
+        endif()
+
+        if(WIN32)
+          set(MAKE_EXECUTABLE NMake.exe)
+        else()
+          set(MAKE_EXECUTABLE "\$(MAKE)")
+        endif()
+
+        add_custom_command(
+            OUTPUT ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${PYTHON_EXTENSION_MODULE_SUFFIX}
+            COMMAND ${MAKE_EXECUTABLE}
+            DEPENDS ${SIP_BUILD_DIR}/Makefile
+            WORKING_DIRECTORY ${SIP_BUILD_DIR}
+            COMMENT "Compiling generated code for ${PROJECT_NAME} Python bindings..."
+        )
+    endif()
 
     add_custom_target(lib${PROJECT_NAME} ALL
-        DEPENDS ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        DEPENDS ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${PYTHON_EXTENSION_MODULE_SUFFIX}
         COMMENT "Meta target for ${PROJECT_NAME} Python bindings..."
     )
     add_dependencies(lib${PROJECT_NAME} ${sip_DEPENDENCIES})
