@@ -11,6 +11,7 @@ qmake = "@QMAKE_EXECUTABLE@"
 
 [tool.sip.project]
 sip-files-dir = "@SIP_FILES_DIR@"
+sip-include-dirs = [@SIP_INCLUDE_DIRS@]
 build-dir = "@SIP_BUILD_DIR@"
 
 # Specify the PEP 566 metadata for the project.
@@ -19,7 +20,7 @@ name = "lib@PROJECT_NAME@"
 
 [tool.sip.bindings.libqt_gui_cpp_sip]
 sip-file = "@SIP_FILE@"
-include-dirs = [@SIP_INCLUDE_DIRS@]
+include-dirs = [@SIP_H_INCLUDE_DIRS@]
 libraries = [@SIP_LIBRARIES@]
 library-dirs = [@SIP_LIBRARY_DIRS@]
 # this should be extra-objects, but these break inside pybuild with sip modules

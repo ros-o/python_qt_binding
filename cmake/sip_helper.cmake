@@ -121,11 +121,11 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
 
         set(SIP_FILES_DIR ${sip_SOURCE_DIR})
 
-        set(SIP_INCLUDE_DIRS "")
+        set(SIP_H_INCLUDE_DIRS "")
         foreach(_x ${INCLUDE_DIRS})
-          set(SIP_INCLUDE_DIRS "${SIP_INCLUDE_DIRS},\"${_x}\"")
+          set(SIP_H_INCLUDE_DIRS "${SIP_H_INCLUDE_DIRS},\"${_x}\"")
         endforeach()
-        string(REGEX REPLACE "^," "" SIP_INCLUDE_DIRS ${SIP_INCLUDE_DIRS})
+        string(REGEX REPLACE "^," "" SIP_H_INCLUDE_DIRS ${SIP_H_INCLUDE_DIRS})
 
         # pyproject.toml expects libraries listed as such to be added to the linker command
         # via `-l`, but this does not work for libraries with absolute paths
@@ -154,6 +154,14 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
           set(SIP_EXTRA_DEFINES "${SIP_EXTRA_DEFINES},\"${_x}\"")
         endforeach()
         string(REGEX REPLACE "^," "" SIP_EXTRA_DEFINES ${SIP_EXTRA_DEFINES})
+
+        execute_process(
+          COMMAND ${PYTHON_EXECUTABLE} -c "import os; import PyQt5; print(os.path.join(PyQt5.__path__[0], 'bindings'))"
+          OUTPUT_VARIABLE PYQT5_BINDINGS_DIR
+          ERROR_QUIET
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        set(SIP_INCLUDE_DIRS "\"${PYQT5_BINDINGS_DIR}\"")
 
         # TODO:
         #   I don't know what to do about LDFLAGS_OTHER
