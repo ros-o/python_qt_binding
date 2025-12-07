@@ -5,13 +5,10 @@ set(__PYTHON_QT_BINDING_SIP_HELPER_INCLUDED TRUE)
 
 set(__PYTHON_QT_BINDING_SIP_HELPER_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-set(Python_ADDITIONAL_VERSIONS "${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}")
-find_package(PythonInterp "${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}" REQUIRED)
-assert(PYTHON_EXECUTABLE)
-find_package(PythonLibs "${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}" REQUIRED)
+find_package(Python "${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}" COMPONENTS Interpreter Development REQUIRED)
 
 execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} -c "import sipconfig; print(sipconfig.Configuration().sip_bin)"
+  COMMAND ${Python_EXECUTABLE} -c "import sipconfig; print(sipconfig.Configuration().sip_bin)"
   OUTPUT_VARIABLE PYTHON_SIP_EXECUTABLE
   ERROR_QUIET)
 
@@ -39,7 +36,7 @@ if(sip_helper_FOUND)
 endif()
 
 execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} -c "import sysconfig as c; print(c.get_config_var('EXT_SUFFIX'), end='')"
+  COMMAND ${Python_EXECUTABLE} -c "import sysconfig as c; print(c.get_config_var('EXT_SUFFIX'), end='')"
   OUTPUT_VARIABLE PYTHON_EXTENSION_MODULE_SUFFIX
   ERROR_QUIET)
 
@@ -90,7 +87,7 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
     set(SIP_BUILD_DIR ${sip_BINARY_DIR}/sip/${PROJECT_NAME})
 
     set(INCLUDE_DIRS)
-    foreach(dir ${${PROJECT_NAME}_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+    foreach(dir ${${PROJECT_NAME}_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
       get_filename_component(dir_real "${dir}" REALPATH BASE_DIR ${sip_SOURCE_DIR})
       # filter out /usr/include, which must not be included via -isystem
       if (NOT "${dir_real}" STREQUAL "/usr/include")
@@ -132,7 +129,7 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
         # instead we have to pass them to the linker via a different parameter
         set(_SIP_REL_LIBRARIES "")
         set(_SIP_ABS_LIBRARIES "")
-        foreach(_x ${LIBRARIES} ${PYTHON_LIBRARIES})
+        foreach(_x ${LIBRARIES} ${Python_LIBRARIES})
           cmake_path(IS_ABSOLUTE _x is_abs)
           if(is_abs)
             list(APPEND _SIP_ABS_LIBRARIES "\"${_x}\"")
@@ -156,7 +153,7 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
         string(REGEX REPLACE "^," "" SIP_EXTRA_DEFINES ${SIP_EXTRA_DEFINES})
 
         execute_process(
-          COMMAND ${PYTHON_EXECUTABLE} -c "import os; import PyQt5; print(os.path.join(PyQt5.__path__[0], 'bindings'))"
+          COMMAND ${Python_EXECUTABLE} -c "import os; import PyQt5; print(os.path.join(PyQt5.__path__[0], 'bindings'))"
           OUTPUT_VARIABLE PYQT5_BINDINGS_DIR
           ERROR_QUIET
           OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -173,7 +170,7 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
         )
         add_custom_command(
             OUTPUT ${sip_LIBRARY_DIR}/lib${PROJECT_NAME}${PYTHON_EXTENSION_MODULE_SUFFIX}
-            COMMAND ${PYTHON_EXECUTABLE} -m pip install . --target ${sip_LIBRARY_DIR} --no-deps --no-build-isolation
+            COMMAND ${Python_EXECUTABLE} -m pip install . --target ${sip_LIBRARY_DIR} --no-deps --no-build-isolation
             DEPENDS ${sip_SIP_CONFIGURE} ${SIP_FILE} ${sip_DEPENDS}
             WORKING_DIRECTORY ${sip_BINARY_DIR}/sip
             COMMENT "Running SIP-build generator for ${PROJECT_NAME} Python bindings..."
@@ -181,7 +178,7 @@ function(build_sip_binding PROJECT_NAME SIP_FILE)
     else()
         add_custom_command(
             OUTPUT ${SIP_BUILD_DIR}/Makefile
-            COMMAND ${PYTHON_EXECUTABLE} ${sip_SIP_CONFIGURE} ${SIP_BUILD_DIR} ${SIP_FILE} ${sip_LIBRARY_DIR} \"${INCLUDE_DIRS}\" \"${LIBRARIES}\" \"${LIBRARY_DIRS}\" \"${LDFLAGS_OTHER}\" \"${EXTRA_DEFINES}\"
+            COMMAND ${Python_EXECUTABLE} ${sip_SIP_CONFIGURE} ${SIP_BUILD_DIR} ${SIP_FILE} ${sip_LIBRARY_DIR} \"${INCLUDE_DIRS}\" \"${LIBRARIES}\" \"${LIBRARY_DIRS}\" \"${LDFLAGS_OTHER}\" \"${EXTRA_DEFINES}\"
             COMMAND sed -i 's/ -I/ -isystem/g' ${SIP_BUILD_DIR}/Makefile
             DEPENDS ${sip_SIP_CONFIGURE} ${SIP_FILE} ${sip_DEPENDS}
             WORKING_DIRECTORY ${sip_SOURCE_DIR}
